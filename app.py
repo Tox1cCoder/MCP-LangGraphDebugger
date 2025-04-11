@@ -515,31 +515,24 @@ with st.sidebar:
                     parsed_tool = json.loads(new_tool_json)
 
                     if "mcpServers" in parsed_tool:
-                        # Move contents of mcpServers to top level
                         parsed_tool = parsed_tool["mcpServers"]
                         st.info(
                             "'mcpServers' format detected. Converting automatically."
                         )
 
-                    # Check number of tools entered
                     if len(parsed_tool) == 0:
                         st.error("Please enter at least one tool.")
                     else:
-                        # Process all tools
                         success_tools = []
                         for tool_name, tool_config in parsed_tool.items():
-                            # Check URL field and set transport
                             if "url" in tool_config:
-                                # Set transport to "sse" if URL is present
                                 tool_config["transport"] = "sse"
                                 st.info(
                                     f"URL detected in '{tool_name}' tool, setting transport to 'sse'."
                                 )
                             elif "transport" not in tool_config:
-                                # Set default "stdio" if no URL and no transport
                                 tool_config["transport"] = "stdio"
 
-                            # Check required fields
                             if (
                                 "command" not in tool_config
                                 and "url" not in tool_config
@@ -558,13 +551,11 @@ with st.sidebar:
                                     f"'args' field in '{tool_name}' tool must be an array ([])."
                                 )
                             else:
-                                # Add tool to pending_mcp_config
                                 st.session_state.pending_mcp_config[tool_name] = (
                                     tool_config
                                 )
                                 success_tools.append(tool_name)
 
-                        # Success message
                         if success_tools:
                             if len(success_tools) == 1:
                                 st.success(
@@ -575,7 +566,6 @@ with st.sidebar:
                                 st.success(
                                     f"Total {len(success_tools)} tools ({tool_names}) have been added. Click 'Apply Settings' button to apply changes."
                                 )
-                            # Collapse expander after adding
                             st.session_state.mcp_tools_expander = False
                             st.rerun()
             except json.JSONDecodeError as e:
@@ -592,27 +582,23 @@ with st.sidebar:
             except Exception as e:
                 st.error(f"Error occurred: {e}")
 
-    # Display registered tools list and add delete buttons
     with st.expander("📋 Registered Tools List", expanded=True):
         try:
             pending_config = st.session_state.pending_mcp_config
         except Exception as e:
             st.error("Not a valid MCP tool configuration.")
         else:
-            # Iterate through keys (tool names) in pending config
             for tool_name in list(pending_config.keys()):
                 col1, col2 = st.columns([8, 2])
                 col1.markdown(f"- **{tool_name}**")
                 if col2.button("Delete", key=f"delete_{tool_name}"):
-                    # Delete tool from pending config (not applied immediately)
                     del st.session_state.pending_mcp_config[tool_name]
                     st.success(
                         f"{tool_name} tool has been deleted. Click 'Apply Settings' button to apply changes."
                     )
 
-    st.divider()  # Add divider
+    st.divider()
 
-# --- Sidebar: System Information and Action Buttons Section ---
 with st.sidebar:
     st.subheader("📊 System Information")
     st.write(
@@ -621,80 +607,56 @@ with st.sidebar:
     selected_model_name = st.session_state.selected_model
     st.write(f"🧠 Current Model: {selected_model_name}")
 
-    # Move Apply Settings button here
     if st.button(
         "Apply Settings",
         key="apply_button",
         type="primary",
         use_container_width=True,
     ):
-        # Show applying message
         apply_status = st.empty()
         with apply_status.container():
             st.warning("🔄 Applying changes. Please wait...")
             progress_bar = st.progress(0)
 
-            # Save settings
             st.session_state.mcp_config_text = json.dumps(
                 st.session_state.pending_mcp_config, indent=2, ensure_ascii=False
             )
-
-            # Prepare session initialization
             st.session_state.session_initialized = False
             st.session_state.agent = None
-
-            # Update progress
             progress_bar.progress(30)
 
-            # Run initialization
             success = st.session_state.event_loop.run_until_complete(
                 initialize_session(st.session_state.pending_mcp_config)
             )
 
-            # Update progress
             progress_bar.progress(100)
 
             if success:
                 st.success("✅ New settings have been applied.")
-                # Collapse tool addition expander
                 if "mcp_tools_expander" in st.session_state:
                     st.session_state.mcp_tools_expander = False
             else:
                 st.error("❌ Failed to apply settings.")
 
-        # Refresh page
         st.rerun()
 
-    st.divider()  # Add divider
+    st.divider()
 
-    # Action buttons section
     st.subheader("🔄 Actions")
 
-    # Reset conversation button
     if st.button("Reset Conversation", use_container_width=True, type="primary"):
-        # Reset thread_id
         st.session_state.thread_id = random_uuid()
-
-        # Reset conversation history
         st.session_state.history = []
-
-        # Notification message
         st.success("✅ Conversation has been reset.")
-
-        # Refresh page
         st.rerun()
 
-# --- Default session initialization (if not initialized) ---
 if not st.session_state.session_initialized:
     st.info(
         "MCP server and agent are not initialized. Please click the 'Apply Settings' button in the left sidebar to initialize."
     )
 
-
-# --- Print conversation history ---
 print_message()
 
-# --- User input and processing ---
 user_query = st.chat_input("💬 Enter your question")
 if user_query:
     if st.session_state.session_initialized:
