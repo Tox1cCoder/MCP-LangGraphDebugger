@@ -11,7 +11,6 @@ services:
     ports:
       - "8585:8585"
     volumes:
-      # Optionally, you can remove this volume if you don’t need the file at runtime
       - ./.env:/app/.env:ro
       - ./data:/app/data:rw
     env_file:
