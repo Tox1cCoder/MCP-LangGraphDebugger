@@ -7,6 +7,7 @@ import uuid
 def random_uuid():
     return str(uuid.uuid4())
 
+
 async def astream_graph(
     graph: CompiledStateGraph,
     inputs: dict,
@@ -164,5 +165,89 @@ async def astream_graph(
         raise ValueError(
             f"Invalid stream_mode: {stream_mode}. Must be 'messages' or 'updates'."
         )
-      
+
+    return final_result
+
+
+async def ainvoke_graph(
+    graph: CompiledStateGraph,
+    inputs: dict,
+    config: Optional[RunnableConfig] = None,
+    node_names: List[str] = [],
+    callback: Optional[Callable] = None,
+    include_subgraphs: bool = True,
+) -> Dict[str, Any]:
+    config = config or {}
+    final_result = {}
+
+    def format_namespace(namespace):
+        return namespace[-1].split(":")[0] if len(namespace) > 0 else "root graph"
+
+    async for chunk in graph.astream(
+        inputs, config, stream_mode="updates", subgraphs=include_subgraphs
+    ):
+        if isinstance(chunk, tuple) and len(chunk) == 2:
+            namespace, node_chunks = chunk
+        else:
+            namespace = []
+            node_chunks = chunk
+
+        if isinstance(node_chunks, dict):
+            for node_name, node_chunk in node_chunks.items():
+                final_result = {
+                    "node": node_name,
+                    "content": node_chunk,
+                    "namespace": namespace,
+                }
+
+                if node_names and node_name not in node_names:
+                    continue
+
+                if callback is not None:
+                    result = callback({"node": node_name, "content": node_chunk})
+                    if hasattr(result, "__await__"):
+                        await result
+                else:
+                    print("\n" + "=" * 50)
+                    formatted_namespace = format_namespace(namespace)
+                    if formatted_namespace == "root graph":
+                        print(f"🔄 Node: \033[1;36m{node_name}\033[0m 🔄")
+                    else:
+                        print(
+                            f"🔄 Node: \033[1;36m{node_name}\033[0m in [\033[1;33m{formatted_namespace}\033[0m] 🔄"
+                        )
+                    print("- " * 25)
+
+                    if isinstance(node_chunk, dict):
+                        for k, v in node_chunk.items():
+                            if isinstance(v, BaseMessage):
+                                v.pretty_print()
+                            elif isinstance(v, list):
+                                for list_item in v:
+                                    if isinstance(list_item, BaseMessage):
+                                        list_item.pretty_print()
+                                    else:
+                                        print(list_item)
+                            elif isinstance(v, dict):
+                                for node_chunk_key, node_chunk_value in v.items():
+                                    print(f"{node_chunk_key}:\n{node_chunk_value}")
+                            else:
+                                print(f"\033[1;32m{k}\033[0m:\n{v}")
+                    elif node_chunk is not None:
+                        if hasattr(node_chunk, "__iter__") and not isinstance(
+                            node_chunk, str
+                        ):
+                            for item in node_chunk:
+                                print(item)
+                        else:
+                            print(node_chunk)
+                    print("=" * 50)
+        else:
+            print("\n" + "=" * 50)
+            print(f"🔄 Raw output 🔄")
+            print("- " * 25)
+            print(node_chunks)
+            print("=" * 50)
+            final_result = {"content": node_chunks}
+
     return final_result
