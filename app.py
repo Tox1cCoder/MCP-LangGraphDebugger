@@ -8,10 +8,8 @@ import platform
 if platform.system() == "Windows":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
-# Apply nest_asyncio: Allow nested calls within an already running event loop
 nest_asyncio.apply()
 
-# Create and reuse global event loop (create once and continue using)
 if "event_loop" not in st.session_state:
     loop = asyncio.new_event_loop()
     st.session_state.event_loop = loop
@@ -29,13 +27,10 @@ from langchain_core.messages.tool import ToolMessage
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.runnables import RunnableConfig
 
-# Load environment variables (get API keys and settings from .env file)
 load_dotenv(override=True)
 
-# config.json file path setting
 CONFIG_FILE_PATH = "config.json"
 
-# Function to load settings from JSON file
 def load_config_from_json():
     """
     Loads settings from config.json file.
@@ -57,14 +52,12 @@ def load_config_from_json():
             with open(CONFIG_FILE_PATH, "r", encoding="utf-8") as f:
                 return json.load(f)
         else:
-            # Create file with default settings if it doesn't exist
             save_config_to_json(default_config)
             return default_config
     except Exception as e:
         st.error(f"Error loading settings file: {str(e)}")
         return default_config
 
-# Function to save settings to JSON file
 def save_config_to_json(config):
     """
     Saves settings to config.json file.
@@ -83,27 +76,20 @@ def save_config_to_json(config):
         st.error(f"Error saving settings file: {str(e)}")
         return False
 
-# Initialize login session variables
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-# Check if login is required
 use_login = os.environ.get("USE_LOGIN", "false").lower() == "true"
 
-# Change page settings based on login status
 if use_login and not st.session_state.authenticated:
-    # Login page uses default (narrow) layout
     st.set_page_config(page_title="Agent with MCP Tools", page_icon="🧠")
 else:
-    # Main app uses wide layout
     st.set_page_config(page_title="Agent with MCP Tools", page_icon="🧠", layout="wide")
 
-# Display login screen if login feature is enabled and not yet authenticated
 if use_login and not st.session_state.authenticated:
     st.title("🔐 Login")
     st.markdown("Login is required to use the system.")
 
-    # Place login form in the center of the screen with narrow width
     with st.form("login_form"):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
@@ -120,18 +106,10 @@ if use_login and not st.session_state.authenticated:
             else:
                 st.error("❌ Username or password is incorrect.")
 
-    # Don't display the main app on the login screen
     st.stop()
 
-# Add author information at the top of the sidebar (placed before other sidebar elements)
-st.sidebar.markdown("### ✍️ Made by [TeddyNote](https://youtube.com/c/teddynote) 🚀")
-st.sidebar.markdown(
-    "### 💻 [Project Page](https://github.com/teddynote-lab/langgraph-mcp-agents)"
-)
+st.sidebar.divider() 
 
-st.sidebar.divider()  # Add divider
-
-# Existing page title and description
 st.title("💬 MCP Tool Utilization Agent")
 st.markdown("✨ Ask questions to the ReAct agent that utilizes MCP tools.")
 
@@ -191,7 +169,6 @@ OUTPUT_TOKEN_INFO = {
     "gpt-4o-mini": {"max_tokens": 16000},
 }
 
-# Initialize session state
 if "session_initialized" not in st.session_state:
     st.session_state.session_initialized = False  # Session initialization flag
     st.session_state.agent = None  # Storage for ReAct agent object
@@ -245,24 +222,19 @@ def print_message():
             st.chat_message("user", avatar="🧑‍💻").markdown(message["content"])
             i += 1
         elif message["role"] == "assistant":
-            # Create assistant message container
             with st.chat_message("assistant", avatar="🤖"):
-                # Display assistant message content
                 st.markdown(message["content"])
 
-                # Check if the next message is tool call information
                 if (
                     i + 1 < len(st.session_state.history)
                     and st.session_state.history[i + 1]["role"] == "assistant_tool"
                 ):
-                    # Display tool call information in the same container as an expander
                     with st.expander("🔧 Tool Call Information", expanded=False):
                         st.markdown(st.session_state.history[i + 1]["content"])
-                    i += 2  # Increment by 2 as we processed two messages together
+                    i += 2
                 else:
-                    i += 1  # Increment by 1 as we only processed a regular message
+                    i += 1
         else:
-            # Skip assistant_tool messages as they are handled above
             i += 1
 
 
@@ -291,14 +263,11 @@ def get_streaming_callback(text_placeholder, tool_placeholder):
 
         if isinstance(message_content, AIMessageChunk):
             content = message_content.content
-            # If content is in list form (mainly occurs in Claude models)
             if isinstance(content, list) and len(content) > 0:
                 message_chunk = content[0]
-                # Process text type
                 if message_chunk["type"] == "text":
                     accumulated_text.append(message_chunk["text"])
                     text_placeholder.markdown("".join(accumulated_text))
-                # Process tool use type
                 elif message_chunk["type"] == "tool_use":
                     if "partial_json" in message_chunk:
                         accumulated_tool.append(message_chunk["partial_json"])
@@ -312,7 +281,6 @@ def get_streaming_callback(text_placeholder, tool_placeholder):
                         "🔧 Tool Call Information", expanded=True
                     ):
                         st.markdown("".join(accumulated_tool))
-            # Process if tool_calls attribute exists (mainly occurs in OpenAI models)
             elif (
                 hasattr(message_content, "tool_calls")
                 and message_content.tool_calls
@@ -324,11 +292,9 @@ def get_streaming_callback(text_placeholder, tool_placeholder):
                     "🔧 Tool Call Information", expanded=True
                 ):
                     st.markdown("".join(accumulated_tool))
-            # Process if content is a simple string
             elif isinstance(content, str):
                 accumulated_text.append(content)
                 text_placeholder.markdown("".join(accumulated_text))
-            # Process if invalid tool call information exists
             elif (
                 hasattr(message_content, "invalid_tool_calls")
                 and message_content.invalid_tool_calls
@@ -339,7 +305,6 @@ def get_streaming_callback(text_placeholder, tool_placeholder):
                     "🔧 Tool Call Information (Invalid)", expanded=True
                 ):
                     st.markdown("".join(accumulated_tool))
-            # Process if tool_call_chunks attribute exists
             elif (
                 hasattr(message_content, "tool_call_chunks")
                 and message_content.tool_call_chunks
@@ -352,7 +317,6 @@ def get_streaming_callback(text_placeholder, tool_placeholder):
                     "🔧 Tool Call Information", expanded=True
                 ):
                     st.markdown("".join(accumulated_tool))
-            # Process if tool_calls exists in additional_kwargs (supports various model compatibility)
             elif (
                 hasattr(message_content, "additional_kwargs")
                 and "tool_calls" in message_content.additional_kwargs
@@ -363,7 +327,6 @@ def get_streaming_callback(text_placeholder, tool_placeholder):
                     "🔧 Tool Call Information", expanded=True
                 ):
                     st.markdown("".join(accumulated_tool))
-        # Process if it's a tool message (tool response)
         elif isinstance(message_content, ToolMessage):
             accumulated_tool.append(
                 "\n```json\n" + str(message_content.content) + "\n```\n"
