@@ -186,9 +186,6 @@ if "thread_id" not in st.session_state:
     st.session_state.thread_id = random_uuid()
 
 
-# --- Function Definitions ---
-
-
 async def cleanup_mcp_client():
     """
     Safely terminates the existing MCP client.
@@ -202,9 +199,6 @@ async def cleanup_mcp_client():
             st.session_state.mcp_client = None
         except Exception as e:
             import traceback
-
-            # st.warning(f"Error while terminating MCP client: {str(e)}")
-            # st.warning(traceback.format_exc())
 
 
 def print_message():
@@ -405,11 +399,9 @@ async def initialize_session(mcp_config=None):
         bool: Initialization success status
     """
     with st.spinner("🔄 Connecting to MCP server..."):
-        # First safely clean up existing client
         await cleanup_mcp_client()
 
         if mcp_config is None:
-            # Load settings from config.json file
             mcp_config = load_config_from_json()
         client = MultiServerMCPClient(mcp_config)
         await client.__aenter__()
@@ -417,7 +409,6 @@ async def initialize_session(mcp_config=None):
         st.session_state.tool_count = len(tools)
         st.session_state.mcp_client = client
 
-        # Initialize appropriate model based on selection
         selected_model = st.session_state.selected_model
 
         if selected_model in [
@@ -430,7 +421,7 @@ async def initialize_session(mcp_config=None):
                 temperature=0.1,
                 max_tokens=OUTPUT_TOKEN_INFO[selected_model]["max_tokens"],
             )
-        else:  # Use OpenAI model
+        else:
             model = ChatOpenAI(
                 model=selected_model,
                 temperature=0.1,
@@ -446,16 +437,10 @@ async def initialize_session(mcp_config=None):
         st.session_state.session_initialized = True
         return True
 
-
-# --- Sidebar: System Settings Section ---
 with st.sidebar:
     st.subheader("⚙️ System Settings")
-
-    # Model selection feature
-    # Create list of available models
     available_models = []
 
-    # Check Anthropic API key
     has_anthropic_key = os.environ.get("ANTHROPIC_API_KEY") is not None
     if has_anthropic_key:
         available_models.extend(
@@ -466,20 +451,16 @@ with st.sidebar:
             ]
         )
 
-    # Check OpenAI API key
     has_openai_key = os.environ.get("OPENAI_API_KEY") is not None
     if has_openai_key:
         available_models.extend(["gpt-4o", "gpt-4o-mini"])
 
-    # Display message if no models are available
     if not available_models:
         st.warning(
             "⚠️ API keys are not configured. Please add ANTHROPIC_API_KEY or OPENAI_API_KEY to your .env file."
         )
-        # Add Claude model as default (to show UI even without keys)
         available_models = ["claude-3-7-sonnet-latest"]
 
-    # Model selection dropdown
     previous_model = st.session_state.selected_model
     st.session_state.selected_model = st.selectbox(
         "🤖 Select model to use",
@@ -492,7 +473,6 @@ with st.sidebar:
         help="Anthropic models require ANTHROPIC_API_KEY and OpenAI models require OPENAI_API_KEY to be set as environment variables.",
     )
 
-    # Notify when model is changed and session needs to be reinitialized
     if (
         previous_model != st.session_state.selected_model
         and st.session_state.session_initialized
@@ -501,7 +481,6 @@ with st.sidebar:
             "⚠️ Model has been changed. Click 'Apply Settings' button to apply changes."
         )
 
-    # Add timeout setting slider
     st.session_state.timeout_seconds = st.slider(
         "⏱️ Response generation time limit (seconds)",
         min_value=60,
@@ -520,29 +499,23 @@ with st.sidebar:
         help="Set the recursion call limit. Setting too high a value may cause memory issues.",
     )
 
-    st.divider()  # Add divider
+    st.divider()
 
-    # Tool settings section
     st.subheader("🔧 Tool Settings")
 
-    # Manage expander state in session state
     if "mcp_tools_expander" not in st.session_state:
         st.session_state.mcp_tools_expander = False
 
-    # MCP tool addition interface
     with st.expander("🧰 Add MCP Tools", expanded=st.session_state.mcp_tools_expander):
-        # Load settings from config.json file
         loaded_config = load_config_from_json()
         default_config_text = json.dumps(loaded_config, indent=2, ensure_ascii=False)
         
-        # Create pending config based on existing mcp_config_text if not present
         if "pending_mcp_config" not in st.session_state:
             try:
                 st.session_state.pending_mcp_config = loaded_config
             except Exception as e:
                 st.error(f"Failed to set initial pending config: {e}")
 
-        # UI for adding individual tools
         st.subheader("Add Tool(JSON format)")
         st.markdown(
             """
@@ -554,7 +527,6 @@ with st.sidebar:
         """
         )
 
-        # Provide clearer example
         example_json = {
             "github": {
                 "command": "npx",
