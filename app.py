@@ -719,17 +719,14 @@ with st.sidebar:
             st.success("✅ You have been logged out.")
             st.rerun()
 
-# --- Initialize default session (if not initialized) ---
 if not st.session_state.session_initialized:
     st.info(
         "MCP server and agent are not initialized. Please click the 'Apply Settings' button in the left sidebar to initialize."
     )
 
 
-# --- Print conversation history ---
 print_message()
 
-# --- User input and processing ---
 user_query = st.chat_input("💬 Enter your question")
 if user_query:
     if st.session_state.session_initialized:
